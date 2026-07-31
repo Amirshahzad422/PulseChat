@@ -10,10 +10,10 @@ import {
 
 export const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Bots', href: '/bots', icon: Bot },
-  { name: 'Knowledge Base', href: '/knowledge', icon: BookOpen },
-  { name: 'Conversations', href: '/conversations', icon: MessageSquare },
-  { name: 'Staff', href: '/staff', icon: Users },
-  { name: 'Reports', href: '/reports', icon: BarChart3 },
-  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Bots', href: '/dashboard/bots', icon: Bot },
+  { name: 'Knowledge Base', href: '/dashboard/knowledge', icon: BookOpen },
+  { name: 'Conversations', href: '/dashboard/conversations', icon: MessageSquare },
+  { name: 'Staff', href: '/dashboard/staff', icon: Users },
+  { name: 'Reports', href: '/dashboard/reports', icon: BarChart3 },
+  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ]

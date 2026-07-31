@@ -93,18 +93,12 @@ export default async function BotsPage() {
                       >
                         <Pencil className="h-4 w-4" />
                       </Link>
-                      <button
+                      <Link
+                        href={`/dashboard/bots/${bot.id}`}
                         className="rounded p-1 text-gray-600 hover:bg-gray-100 hover:text-red-600"
-                        onClick={async () => {
-                          if (
-                            confirm('Are you sure you want to delete this bot?')
-                          ) {
-                            // Delete will be handled client-side
-                          }
-                        }}
                       >
                         <Trash2 className="h-4 w-4" />
-                      </button>
+                      </Link>
                     </div>
                   </td>
                 </tr>
