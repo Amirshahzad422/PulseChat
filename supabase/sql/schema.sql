@@ -1,5 +1,8 @@
 -- PulseChat Multi-Tenant Schema
 
+-- Enable pgvector extension (must be first)
+CREATE EXTENSION IF NOT EXISTS vector;
+
 -- 1. ACCOUNTS (businesses)
 CREATE TABLE accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -68,9 +71,6 @@ CREATE INDEX idx_bots_account_id ON bots(account_id);
 CREATE INDEX idx_knowledge_bot_id ON knowledge_sources(bot_id);
 CREATE INDEX idx_conversations_bot_id ON conversations(bot_id);
 CREATE INDEX idx_messages_conversation_id ON messages(conversation_id);
-
--- Enable pgvector extension
-CREATE EXTENSION IF NOT EXISTS vector;
 
 -- pgvector index
 CREATE INDEX idx_knowledge_embedding ON knowledge_sources 

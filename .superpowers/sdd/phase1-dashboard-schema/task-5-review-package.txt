@@ -1,0 +1,86 @@
+commit 7692e127b5537c85db31ab31f49a36c3eefaad3b
+Author: Ali Haider Bajwa <alihaider8328fic@gmail.com>
+Date:   Fri Jul 31 12:28:17 2026 +0500
+
+    feat: add shared TypeScript types
+
+diff --git a/packages/shared/package.json b/packages/shared/package.json
+index 9c3fa63..c053df6 100644
+--- a/packages/shared/package.json
++++ b/packages/shared/package.json
+@@ -1,5 +1,7 @@
+ {
+   "name": "@pulsechat/shared",
+-  "version": "0.0.1",
+-  "private": true
+-}
++  "version": "0.1.0",
++  "private": true,
++  "main": "./types/index.ts",
++  "types": "./types/index.ts"
++}
+\ No newline at end of file
+diff --git a/packages/shared/types/index.ts b/packages/shared/types/index.ts
+new file mode 100644
+index 0000000..8db3d0b
+--- /dev/null
++++ b/packages/shared/types/index.ts
+@@ -0,0 +1,57 @@
++// packages/shared/types/index.ts
++
++export interface Account {
++  id: string
++  name: string
++  email: string
++  plan: 'free' | 'pro' | 'enterprise'
++  created_at: string
++}
++
++export interface Staff {
++  id: string
++  account_id: string
++  user_id: string
++  name: string
++  role: 'owner' | 'editor' | 'viewer'
++  created_at: string
++}
++
++export interface Bot {
++  id: string
++  account_id: string
++  name: string
++  brand_color: string
++  avatar_url: string | null
++  welcome_message: string
++  persona_instructions: string
++  position: 'bottom-right' | 'bottom-left'
++  status: 'active' | 'inactive'
++  created_at: string
++}
++
++export interface KnowledgeSource {
++  id: string
++  bot_id: string
++  source_type: 'document' | 'url'
++  title: string
++  content: string
++  embedding?: number[]
++  metadata: Record<string, unknown>
++  uploaded_at: string
++}
++
++export interface Conversation {
++  id: string
++  bot_id: string
++  visitor_session: string
++  started_at: string
++}
++
++export interface Message {
++  id: string
++  conversation_id: string
++  role: 'visitor' | 'bot'
++  content: string
++  created_at: string
++}
+\ No newline at end of file
