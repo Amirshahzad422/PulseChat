@@ -103,6 +103,7 @@ export default async function DashboardPage() {
         {recentConversations && recentConversations.length > 0 ? (
           <div className="space-y-4">
             {recentConversations.map((conv) => {
+              const bot = Array.isArray(conv.bots) ? conv.bots[0] : conv.bots
               const lastMessage = conv.messages?.[conv.messages.length - 1]
               return (
                 <div key={conv.id} className="flex items-start gap-3 border-b pb-4 last:border-0">
@@ -110,7 +111,7 @@ export default async function DashboardPage() {
                     <MessageSquare className="h-4 w-4 text-blue-600" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium">{conv.bots?.[0]?.name || 'Unknown Bot'}</p>
+                    <p className="font-medium">{bot?.name || 'Unknown Bot'}</p>
                     <p className="text-sm text-gray-600 truncate">
                       {lastMessage?.content || 'No messages yet'}
                     </p>

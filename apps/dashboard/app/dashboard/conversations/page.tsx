@@ -95,6 +95,7 @@ export default async function ConversationsPage({
             </thead>
             <tbody>
               {conversations.map((conv) => {
+                const bot = Array.isArray(conv.bots) ? conv.bots[0] : conv.bots
                 const msgCount = conv.messages?.length || 0
                 const lastMsg = conv.messages?.reduce((a, b) =>
                   new Date(a.created_at) > new Date(b.created_at) ? a : b
@@ -103,8 +104,8 @@ export default async function ConversationsPage({
                   <tr key={conv.id} className="border-b last:border-0 hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <Link href={`/dashboard/conversations/${conv.id}`} className="flex items-center gap-2">
-                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: conv.bots?.[0]?.brand_color || '#3B82F6' }} />
-                        <span className="font-medium">{conv.bots?.[0]?.name || 'Unknown Bot'}</span>
+                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: bot?.brand_color || '#3B82F6' }} />
+                        <span className="font-medium">{bot?.name || 'Unknown Bot'}</span>
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600">
