@@ -110,7 +110,7 @@ export default async function DashboardPage() {
                     <MessageSquare className="h-4 w-4 text-blue-600" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium">{conv.bots?.name || 'Unknown Bot'}</p>
+                    <p className="font-medium">{conv.bots?.[0]?.name || 'Unknown Bot'}</p>
                     <p className="text-sm text-gray-600 truncate">
                       {lastMessage?.content || 'No messages yet'}
                     </p>

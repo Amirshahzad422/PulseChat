@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { ArrowLeft, FileText, Globe, Upload } from 'lucide-react'
 
-export default function UploadKnowledgePage() {
+function UploadKnowledgeContent() {
   const searchParams = useSearchParams()
   const botId = searchParams.get('bot')
   
@@ -35,18 +35,26 @@ export default function UploadKnowledgePage() {
       finalContent = `URL: ${url}\n\n(Content would be fetched and stored here)`
     }
 
-    const { error: insertError } = await supabase.from('knowledge_sources').insert({
+    const { data: inserted, error: insertError } = await supabase.from('knowledge_sources').insert({
       bot_id: botId,
       source_type: sourceType,
       title: title,
       content: finalContent,
       metadata: sourceType === 'url' ? { url } : {},
-    })
+    }).select('id').single()
 
     if (insertError) {
       setError(insertError.message)
       setLoading(false)
     } else {
+      // Auto-generate embedding for the uploaded content
+      if (inserted?.id && finalContent) {
+        fetch('/api/knowledge/embed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ knowledge_id: inserted.id, content: finalContent })
+        }).catch(() => {})
+      }
       router.push('/dashboard/knowledge')
     }
   }
@@ -172,5 +180,13 @@ export default function UploadKnowledgePage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function UploadKnowledgePage() {
+  return (
+    <Suspense fallback={<div className="text-center py-8">Loading...</div>}>
+      <UploadKnowledgeContent />
+    </Suspense>
   )
 }

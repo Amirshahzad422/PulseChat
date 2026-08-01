@@ -53,107 +53,102 @@
     }
   }
 
-  // Send message to chat
+  // Conversation state
+  let currentConversationId = null;
+  let isStreaming = false;
+
+  // Send message to chat via AI streaming API
   async function sendMessage(text) {
-    if (!text.trim() || !botConfig) return;
+    if (!text.trim() || !botConfig || isStreaming) return;
+
+    isStreaming = true;
 
     // Add user message
     messages.push({ role: 'visitor', content: text });
     updateMessages();
 
     // Create or get conversation
-    let conversationId = null;
-    try {
-      const convResponse = await fetch(
-        `${SUPABASE_URL}/rest/v1/conversations`,
-        {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
-          },
-          body: JSON.stringify({
-            bot_id: botId,
-            visitor_session: visitorSession
-          })
-        }
-      );
-      const convData = await convResponse.json();
-      if (convData && convData.length > 0) {
-        conversationId = convData[0].id;
-      }
-    } catch (error) {
-      console.error('PulseChat: Failed to create conversation', error);
-    }
-
-    // Save user message
-    if (conversationId) {
+    if (!currentConversationId) {
       try {
-        await fetch(`${SUPABASE_URL}/rest/v1/messages`, {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            conversation_id: conversationId,
-            role: 'visitor',
-            content: text
-          })
-        });
+        const convResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/conversations`,
+          {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_ANON_KEY,
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=representation'
+            },
+            body: JSON.stringify({
+              bot_id: botId,
+              visitor_session: visitorSession
+            })
+          }
+        );
+        const convData = await convResponse.json();
+        if (convData && convData.length > 0) {
+          currentConversationId = convData[0].id;
+        }
       } catch (error) {
-        console.error('PulseChat: Failed to save message', error);
+        console.error('PulseChat: Failed to create conversation', error);
       }
     }
 
-    // Generate bot response (simple for now)
-    const botResponse = generateBotResponse(text);
-    messages.push({ role: 'bot', content: botResponse });
+    // Add empty bot message for streaming
+    messages.push({ role: 'bot', content: '' });
     updateMessages();
 
-    // Save bot message
-    if (conversationId) {
-      try {
-        await fetch(`${SUPABASE_URL}/rest/v1/messages`, {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            conversation_id: conversationId,
-            role: 'bot',
-            content: botResponse
-          })
-        });
-      } catch (error) {
-        console.error('PulseChat: Failed to save bot message', error);
-      }
-    }
-  }
+    // Stream response from AI API
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bot_id: botId,
+          message: text,
+          conversation_id: currentConversationId,
+          visitor_session: visitorSession
+        })
+      });
 
-  // Simple bot response generator (will be replaced with AI later)
-  function generateBotResponse(text) {
-    const lowerText = text.toLowerCase();
-    
-    if (lowerText.includes('hello') || lowerText.includes('hi')) {
-      return `Hello! I'm ${botConfig.name}. ${botConfig.welcome_message}`;
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let botMessageIndex = messages.length - 1;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.token) {
+                messages[botMessageIndex].content += data.token;
+                updateMessages();
+              }
+            } catch (e) {
+              // Skip invalid JSON lines
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('PulseChat: Streaming error:', error);
+      const lastBotIdx = messages.length - 1;
+      messages[lastBotIdx].content = 'Sorry, I encountered an error. Please try again.';
+      updateMessages();
     }
-    if (lowerText.includes('help')) {
-      return "I'm here to help! Please ask me any question about our products or services.";
-    }
-    if (lowerText.includes('price') || lowerText.includes('cost')) {
-      return "Our pricing varies based on your needs. Could you tell me more about what you're looking for?";
-    }
-    if (lowerText.includes('thank')) {
-      return "You're welcome! Is there anything else I can help you with?";
-    }
-    
-    return `Thanks for your message! I'm ${botConfig.name} and I'm here to help. ${botConfig.persona_instructions}`;
+
+    isStreaming = false;
   }
 
   // Update messages in UI
@@ -186,11 +181,20 @@
           color: ${msg.role === 'bot' ? '#1f2937' : 'white'};
           font-size: 14px;
           line-height: 1.4;
-        ">${msg.content}</div>
+        ">${msg.content || '<div class="typing-indicator"><span></span><span></span><span></span></div>'}</div>
       </div>
     `).join('');
 
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Update input state based on streaming
+    const input = shadow.querySelector('#messageInput');
+    const sendBtn = shadow.querySelector('#sendBtn');
+    if (input && sendBtn) {
+      input.disabled = isStreaming;
+      sendBtn.disabled = isStreaming;
+      input.placeholder = isStreaming ? 'AI is typing...' : 'Type a message...';
+    }
   }
 
   // Render the widget
@@ -328,6 +332,33 @@
         
         .chat-input button:hover {
           opacity: 0.9;
+        }
+        
+        .chat-input button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        
+        .typing-indicator {
+          display: flex;
+          gap: 4px;
+          padding: 4px 0;
+        }
+        
+        .typing-indicator span {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background-color: #9ca3af;
+          animation: typing 1.4s infinite ease-in-out;
+        }
+        
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        
+        @keyframes typing {
+          0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+          40% { transform: scale(1); opacity: 1; }
         }
       </style>
       
