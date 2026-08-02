@@ -26,6 +26,11 @@ function checkRateLimit(botId: string): boolean {
   return true;
 }
 
+function ensureVisitorSession(visitorSession?: string): string {
+  if (visitorSession && visitorSession.trim()) return visitorSession.trim();
+  return 'visitor_' + Math.random().toString(36).slice(2, 11);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { bot_id, message, conversation_id, visitor_session } = await request.json();
@@ -56,7 +61,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Bot not found' }, { status: 404 });
     }
 
-    // 2. Generate query embedding using Gemini text-embedding model
+    if (bot.status !== 'active') return NextResponse.json({ error: 'Bot is inactive' }, { status: 403 });
+
+    const session = ensureVisitorSession(visitor_session);
+
+    // 3. Resolve (or create) the conversation for this session.
+    let conversationId: string | null = null;
+
+    if (conversation_id) {
+      const { data: existing } = await supabase
+        .from('conversations')
+        .select('id, bot_id')
+        .eq('id', conversation_id)
+        .maybeSingle();
+      if (existing && existing.bot_id === bot_id) {
+        conversationId = existing.id;
+      }
+    }
+
+    if (!conversationId) {
+      const { data: created, error: createError } = await supabase
+        .from('conversations')
+        .insert({ bot_id, visitor_session: session })
+        .select('id')
+        .single();
+      if (createError || !created) {
+        return NextResponse.json({ error: 'Failed to create conversation' }, { status: 500 });
+      }
+      conversationId = created.id;
+    }
+
+    // 4. Save visitor message to database
+    await supabase.from('messages').insert({
+      conversation_id: conversationId,
+      role: 'visitor',
+      content: message
+    });
+
+    // 5. Generate query embedding using Gemini text-embedding model
     let relevantDocs: { title: string; content: string; similarity: number }[] = [];
 
     try {
@@ -94,16 +136,7 @@ export async function POST(request: NextRequest) {
       systemPrompt += '\n\nNo specific knowledge base documents were found for this question. Answer using your general knowledge.';
     }
 
-    // 5. Save visitor message to database
-    if (conversation_id) {
-      await supabase.from('messages').insert({
-        conversation_id,
-        role: 'visitor',
-        content: message
-      });
-    }
-
-    // 6. Set up SSE streaming response
+    // 5. Set up SSE streaming response
     const encoder = new TextEncoder();
     let fullResponse = '';
 
@@ -147,10 +180,10 @@ export async function POST(request: NextRequest) {
           controller.enqueue(encoder.encode(doneData));
           controller.close();
 
-          // 7. Save bot response to database
-          if (conversation_id && fullResponse) {
+          // 6. Save bot response to database
+          if (conversationId && fullResponse) {
             await supabase.from('messages').insert({
-              conversation_id,
+              conversation_id: conversationId,
               role: 'bot',
               content: fullResponse
             });
@@ -171,6 +204,8 @@ export async function POST(request: NextRequest) {
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
         'Access-Control-Allow-Origin': '*',
+        'x-conversation-id': conversationId || '',
+        'Access-Control-Expose-Headers': 'x-conversation-id',
       }
     });
 
