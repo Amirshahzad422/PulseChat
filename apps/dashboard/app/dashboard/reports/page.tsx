@@ -59,9 +59,11 @@ export default async function ReportsPage() {
     if (bot) bot.messages += 1
   })
 
-  const daily = Array.from(dailyMap.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, messages]) => ({ date, messages }))
+  const daily = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(since.getTime() + i * 86400000)
+    const key = d.toISOString().slice(0, 10)
+    return { date: key, messages: dailyMap.get(key) || 0 }
+  })
 
   const perBot = (bots || []).map((b) => {
     const s = botStats.get(b.id)!

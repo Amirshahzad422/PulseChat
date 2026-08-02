@@ -97,9 +97,9 @@ export default async function ConversationsPage({
               {conversations.map((conv) => {
                 const bot = Array.isArray(conv.bots) ? conv.bots[0] : conv.bots
                 const msgCount = conv.messages?.length || 0
-                const lastMsg = conv.messages?.reduce((a, b) =>
+                const lastMsg = conv.messages?.length ? conv.messages.reduce((a, b) =>
                   new Date(a.created_at) > new Date(b.created_at) ? a : b
-                )
+                ) : undefined
                 return (
                   <tr key={conv.id} className="border-b last:border-0 hover:bg-gray-50">
                     <td className="px-4 py-3">

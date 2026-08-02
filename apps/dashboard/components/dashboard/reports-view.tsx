@@ -26,7 +26,9 @@ interface ReportData {
 export default function ReportsView({ data }: { data: ReportData }) {
   const exportCsv = () => {
     const header = ['Bot', 'Conversations', 'Messages', 'Avg Messages/Conv']
-    const csv = [header, ...data.rawRows].map((r) => r.join(',')).join('\n')
+    const csv = [header, ...data.rawRows]
+      .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
