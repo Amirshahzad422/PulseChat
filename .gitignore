@@ -6,3 +6,6 @@ dist/
 
 # Superpowers internal files
 .superpowers/
+
+# Superpowers workflow artifacts (not project content)
+docs/superpowers/
