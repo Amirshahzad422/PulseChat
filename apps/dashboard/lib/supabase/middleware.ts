@@ -6,6 +6,14 @@ export async function updateSession(request: NextRequest) {
     request: { headers: request.headers },
   })
 
+  // Public widget API routes: the anonymous chat widget must reach these
+  // without auth (it reads bots via the anon key and streams via /api/chat).
+  const pathname = request.nextUrl.pathname
+  const isPublicApi =
+    pathname.startsWith('/api/chat') ||
+    pathname.startsWith('/api/knowledge') ||
+    pathname.startsWith('/test-widget.html')
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -36,11 +44,12 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Redirect unauthenticated users to login
+  // Redirect unauthenticated users to login (except public widget/chat routes)
   if (
     !user &&
-    !request.nextUrl.pathname.startsWith('/login') &&
-    !request.nextUrl.pathname.startsWith('/signup')
+    !isPublicApi &&
+    !pathname.startsWith('/login') &&
+    !pathname.startsWith('/signup')
   ) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'

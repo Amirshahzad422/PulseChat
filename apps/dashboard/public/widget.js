@@ -7,11 +7,15 @@
   // Get bot ID from script tag
   const script = document.currentScript;
   const botId = script?.getAttribute('data-bot-id');
-  
+
   if (!botId) {
     console.error('PulseChat: No bot ID provided');
     return;
   }
+
+  // Derive the API origin from this script's own URL so it always points at the
+  // dashboard that serves widget.js (works on localhost and after deployment).
+  const scriptOrigin = script && script.src ? new URL(script.src).origin : window.location.origin;
 
   // Supabase config
   const SUPABASE_URL = 'https://qpwccmnrmfsqzixqbayf.supabase.co';
@@ -101,7 +105,7 @@
 
     // Stream response from AI API
     try {
-      const response = await fetch('/api/chat', {
+      const response = await fetch(scriptOrigin + '/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -119,26 +123,37 @@
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let botMessageIndex = messages.length - 1;
+      let buffer = '';
+      let streamDone = false;
 
-      while (true) {
+      const processLine = (line) => {
+        if (!line.startsWith('data: ')) return;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.token) {
+            messages[botMessageIndex].content += data.token;
+            updateMessages();
+          }
+        } catch (e) {
+          // Skip invalid JSON lines
+        }
+      };
+
+      while (!streamDone) {
         const { done, value } = await reader.read();
         if (done) break;
+        buffer += decoder.decode(value, { stream: true });
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.token) {
-                messages[botMessageIndex].content += data.token;
-                updateMessages();
-              }
-            } catch (e) {
-              // Skip invalid JSON lines
-            }
+        let newlineIdx;
+        while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
+          const line = buffer.slice(0, newlineIdx).trim();
+          buffer = buffer.slice(newlineIdx + 1);
+          if (line.startsWith('data: ') && line.includes('"done":true')) {
+            processLine(line);
+            streamDone = true;
+            break;
           }
+          processLine(line);
         }
       }
     } catch (error) {
@@ -150,6 +165,49 @@
 
     isStreaming = false;
     updateMessages();
+  }
+
+  // Escape HTML to avoid XSS from model output
+  function escapeHtml(text) {
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // Convert bot Markdown response into safe HTML
+  function formatBotMessage(text) {
+    if (!text) return '';
+    let html = escapeHtml(text);
+
+    // Fenced code blocks (``` ... ```) with monospace styling
+    html = html.replace(/```([\s\S]*?)```/g, (_, code) =>
+      '<pre style="background:#1f2937;color:#e5e7eb;padding:8px;border-radius:6px;font-size:12px;overflow-x:auto;white-space:pre-wrap;">' + code + '</pre>'
+    );
+
+    // Inline code
+    html = html.replace(/`([^`]+)`/g, '<code style="background:#e5e7eb;padding:1px 4px;border-radius:4px;font-size:12px;">$1</code>');
+
+    // Headings
+    html = html.replace(/^### (.*)$/gm, '<div style="font-weight:600;font-size:15px;margin:8px 0 4px;">$1</div>');
+    html = html.replace(/^## (.*)$/gm, '<div style="font-weight:600;font-size:16px;margin:10px 0 4px;">$1</div>');
+    html = html.replace(/^# (.*)$/gm, '<div style="font-weight:700;font-size:17px;margin:10px 0 4px;">$1</div>');
+
+    // Bold
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    // Italic
+    html = html.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+
+    // Unordered lists
+    html = html.replace(/^\s*[-*] (.*)$/gm, '<div style="padding-left:16px;">&bull; $1</div>');
+    // Ordered lists
+    html = html.replace(/^\s*\d+\. (.*)$/gm, '<div style="padding-left:16px;">1. $1</div>');
+
+    // Line breaks
+    html = html.replace(/\n/g, '<br>');
+
+    return html;
   }
 
   // Update messages in UI
@@ -182,7 +240,7 @@
           color: ${msg.role === 'bot' ? '#1f2937' : 'white'};
           font-size: 14px;
           line-height: 1.4;
-        ">${msg.content || '<div class="typing-indicator"><span></span><span></span><span></span></div>'}</div>
+        ">${msg.role === 'bot' && msg.content ? formatBotMessage(msg.content) : (msg.content ? escapeHtml(msg.content) : '<div class="typing-indicator"><span></span><span></span><span></span></div>')}</div>
       </div>
     `).join('');
 

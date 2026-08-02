@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
           const chat = model.startChat({
             history: [],
             generationConfig: {
-              maxOutputTokens: 1024,
+              maxOutputTokens: 2048,
               temperature: 0.7,
             }
           });
@@ -126,12 +126,19 @@ export async function POST(request: NextRequest) {
           const result = await chat.sendMessageStream(message);
 
           for await (const chunk of result.stream) {
-            const text = chunk.text();
-            if (text) {
-              fullResponse += text;
-              // Send SSE event
-              const sseData = `data: ${JSON.stringify({ token: text, done: false })}\n\n`;
-              controller.enqueue(encoder.encode(sseData));
+            // Filter out the model's internal reasoning/thinking parts so only
+            // the final visible answer is streamed to the user.
+            const parts = chunk.candidates?.[0]?.content?.parts ?? [];
+            for (const part of parts) {
+              const p = part as unknown as { thought?: boolean; thoughtSignature?: string; text?: string };
+              const isThought = p.thought === true || typeof p.thoughtSignature === 'string';
+              if (isThought || !p.text) continue;
+              const text = p.text;
+              if (text) {
+                fullResponse += text;
+                const sseData = `data: ${JSON.stringify({ token: text, done: false })}\n\n`;
+                controller.enqueue(encoder.encode(sseData));
+              }
             }
           }
 
