@@ -17,13 +17,16 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Generate embedding using Gemini text-embedding-004
-    const embeddingModel = genAI.getGenerativeModel({ model: 'text-embedding-004' });
+    // Generate embedding using Gemini embedding model (768 dims to match VECTOR(768))
+    const embeddingModel = genAI.getGenerativeModel({ model: 'gemini-embedding-001' });
 
     // Truncate content to fit within embedding model limits (~8000 tokens)
     const truncatedContent = content.substring(0, 30000);
 
-    const result = await embeddingModel.embedContent(truncatedContent);
+    const result = await embeddingModel.embedContent({
+      content: { role: 'user', parts: [{ text: truncatedContent }] },
+      outputDimensionality: 768
+    } as any);
     const embedding = result.embedding.values;
 
     // Update the knowledge source with the embedding

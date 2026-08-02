@@ -149,6 +149,7 @@
     }
 
     isStreaming = false;
+    updateMessages();
   }
 
   // Update messages in UI

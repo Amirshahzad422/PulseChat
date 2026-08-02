@@ -60,8 +60,11 @@ export async function POST(request: NextRequest) {
     let relevantDocs: { title: string; content: string; similarity: number }[] = [];
 
     try {
-      const embeddingModel = genAI.getGenerativeModel({ model: 'text-embedding-004' });
-      const embeddingResult = await embeddingModel.embedContent(message);
+      const embeddingModel = genAI.getGenerativeModel({ model: 'gemini-embedding-001' });
+      const embeddingResult = await embeddingModel.embedContent({
+        content: { role: 'user', parts: [{ text: message }] },
+        outputDimensionality: 768
+      } as any);
       const queryEmbedding = embeddingResult.embedding.values;
 
       // 3. Search knowledge base using pgvector similarity
@@ -108,7 +111,7 @@ export async function POST(request: NextRequest) {
       async start(controller) {
         try {
           const model = genAI.getGenerativeModel({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-flash-latest',
             systemInstruction: systemPrompt
           });
 

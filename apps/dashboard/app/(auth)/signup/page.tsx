@@ -32,11 +32,12 @@ export default function SignupPage() {
     }
 
     // 2. Create account
-    const { data: account, error: accountError } = await supabase
+    // Generate the id client-side so we don't need to read the row back
+    // (the accounts SELECT policy requires a staff link that doesn't exist yet)
+    const accountId = crypto.randomUUID()
+    const { error: accountError } = await supabase
       .from('accounts')
-      .insert({ name, email })
-      .select()
-      .single()
+      .insert({ id: accountId, name, email })
 
     if (accountError) {
       setError(accountError.message)
@@ -46,7 +47,7 @@ export default function SignupPage() {
 
     // 3. Link user to account as owner
     const { error: staffError } = await supabase.from('staff').insert({
-      account_id: account.id,
+      account_id: accountId,
       user_id: authData.user!.id,
       name,
       role: 'owner',
