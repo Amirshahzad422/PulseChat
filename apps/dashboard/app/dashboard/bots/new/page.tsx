@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
@@ -15,8 +15,34 @@ export default function NewBotPage() {
   const [position, setPosition] = useState<'bottom-right' | 'bottom-left'>('bottom-right')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fetchedDefaults, setFetchedDefaults] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+
+  useEffect(() => {
+    const loadDefaults = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: staff } = await supabase
+        .from('staff')
+        .select('account_id')
+        .eq('user_id', user.id)
+        .single()
+      if (!staff) return
+      const { data: settings } = await supabase
+        .from('account_settings')
+        .select('*')
+        .eq('account_id', staff.account_id)
+        .maybeSingle()
+      if (settings) {
+        setWelcomeMessage((prev) => (prev === 'Hello! How can I help you?' ? settings.default_welcome_message : prev))
+        setBrandColor((prev) => (prev === '#3B82F6' ? settings.default_brand_color : prev))
+        setPersonaInstructions((prev) => (prev === 'You are a helpful assistant.' ? settings.default_persona : prev))
+      }
+      setFetchedDefaults(true)
+    }
+    loadDefaults()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -59,6 +85,10 @@ export default function NewBotPage() {
     } else {
       router.push('/dashboard/bots')
     }
+  }
+
+  if (!fetchedDefaults) {
+    return <div className="text-center py-8">Loading...</div>
   }
 
   return (
