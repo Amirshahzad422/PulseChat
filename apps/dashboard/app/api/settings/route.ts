@@ -4,16 +4,35 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function PATCH(request: NextRequest) {
   try {
-    let body: {
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+
+    if (typeof body !== 'object' || body === null) {
+      return NextResponse.json({ error: 'Invalid settings body' }, { status: 400 })
+    }
+
+    const { account_name, default_welcome_message, default_brand_color, default_persona } = body as {
       account_name?: unknown
       default_welcome_message?: unknown
       default_brand_color?: unknown
       default_persona?: unknown
     }
-    try {
-      body = await request.json()
-    } catch {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+
+    if (account_name !== undefined && typeof account_name !== 'string') {
+      return NextResponse.json({ error: 'Invalid settings body' }, { status: 400 })
+    }
+    if (default_welcome_message !== undefined && typeof default_welcome_message !== 'string') {
+      return NextResponse.json({ error: 'Invalid settings body' }, { status: 400 })
+    }
+    if (default_brand_color !== undefined && typeof default_brand_color !== 'string') {
+      return NextResponse.json({ error: 'Invalid settings body' }, { status: 400 })
+    }
+    if (default_persona !== undefined && typeof default_persona !== 'string') {
+      return NextResponse.json({ error: 'Invalid settings body' }, { status: 400 })
     }
 
     const supabase = createClient()
@@ -34,10 +53,10 @@ export async function PATCH(request: NextRequest) {
 
     const admin = createAdminClient()
 
-    if (body.account_name) {
+    if (account_name) {
       const { error } = await admin
         .from('accounts')
-        .update({ name: body.account_name })
+        .update({ name: account_name })
         .eq('id', staff.account_id)
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 })
@@ -45,9 +64,9 @@ export async function PATCH(request: NextRequest) {
     }
 
     const settings = {
-      default_welcome_message: body.default_welcome_message,
-      default_brand_color: body.default_brand_color,
-      default_persona: body.default_persona,
+      default_welcome_message,
+      default_brand_color,
+      default_persona,
       updated_at: new Date().toISOString(),
     }
 
