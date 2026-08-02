@@ -71,34 +71,6 @@
     messages.push({ role: 'visitor', content: text });
     updateMessages();
 
-    // Create or get conversation
-    if (!currentConversationId) {
-      try {
-        const convResponse = await fetch(
-          `${SUPABASE_URL}/rest/v1/conversations`,
-          {
-            method: 'POST',
-            headers: {
-              'apikey': SUPABASE_ANON_KEY,
-              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-              'Content-Type': 'application/json',
-              'Prefer': 'return=representation'
-            },
-            body: JSON.stringify({
-              bot_id: botId,
-              visitor_session: visitorSession
-            })
-          }
-        );
-        const convData = await convResponse.json();
-        if (convData && convData.length > 0) {
-          currentConversationId = convData[0].id;
-        }
-      } catch (error) {
-        console.error('PulseChat: Failed to create conversation', error);
-      }
-    }
-
     // Add empty bot message for streaming
     messages.push({ role: 'bot', content: '' });
     updateMessages();
@@ -118,6 +90,13 @@
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
+      }
+
+      // Capture the conversation id so all messages in this session share one
+      // conversation. Header is exposed via Access-Control-Expose-Headers.
+      if (!currentConversationId) {
+        const convId = response.headers.get('x-conversation-id');
+        if (convId) currentConversationId = convId;
       }
 
       const reader = response.body.getReader();
