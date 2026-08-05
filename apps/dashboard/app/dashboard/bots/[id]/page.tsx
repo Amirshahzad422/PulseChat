@@ -93,7 +93,8 @@ export default function EditBotPage() {
     }
   }
 
-  const embedSnippet = `<script src="http://localhost:3000/widget.js" data-bot-id="${botId}" async></script>`
+  const siteUrl = typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  const embedSnippet = `<script src="${siteUrl}/widget.js" data-bot-id="${botId}" async></script>`
 
   const copyEmbed = () => {
     navigator.clipboard.writeText(embedSnippet)
