@@ -12,7 +12,8 @@ export async function updateSession(request: NextRequest) {
   const isPublicApi =
     pathname.startsWith('/api/chat') ||
     pathname.startsWith('/api/knowledge') ||
-    pathname.startsWith('/test-widget.html')
+    pathname.startsWith('/test-widget.html') ||
+    pathname === '/widget.js'
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
